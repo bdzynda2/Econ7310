@@ -1,0 +1,122 @@
+---
+title: 'ECN 7310 Project #2'
+author: "David Zynda"
+date: "November 22, 2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Introduction
+
+This Project will seek to highlight and further examine some of the work being done on research concerning the economic impact of Renewable Portfolio Standards implemented at the state level. Five economic variables were originally selected to be fit in a VAR-X model, or a multivariate time series model with an exogenous variable(s). Recent adaptations of the model, whose work is the creation of Dr. Tyler Brough, limited the VAR-X to three variables to improve the overall degrees of freedom. With 3 lags, the model would need 125 parameter estimates for roughly 200 observations assuming all variables were used. Additionally, the effect of cointegration may be present if all variables are used. Therefore, of the five variables including average weekly hours worked in manufacturing, nonfarm employment, unemployment rate, total personal income minus transfer payments, and industrial electricity sales, only the latter three were used in the most recent analysis. 
+
+The goal of this project will be to further explore the potential presence and effect of cointegrating relationships with the inclusion of one of the omitted variables. 
+
+# Data 
+
+Following the example of the Federal Reserve Bank of Philadelphia[^1] in measuring the strength of a regional economy, this project employs seasonally adjusted monthly state unemployment rates, monthly industrial electricity sales, and quarterly state personal income minus transfer payments beginning in January of 2001 and ending on April 2017 for the state of Ohio. 
+
+Industrial Electricity Sales are used as a measure of a state's industrial production and activity. These sales numbers are reported in millions of kilowatthours by the US Department of Energy. These data were obtained from the US Energy Information Administration. Unemployment data for each state was collected from the Bureau of Labor Statistics, as was average Weekly hours worked in Manufacturing, and nonfarm employment in thousands of persons. Lastly, quarterly state personal income and transfer payments were gathered from the Bureau of Economic Analysis and reported in thousands of dollars.
+
+Because state personal income is reported quarterly rather than monthly, cubic spline interpolation was used to estimate monthly points between each quarter after subtracting out transfer payments from the total state income. A common practice used in econometrics, spline interpolation does not generate new data points but rather estimates data between observed data points. The interpolated data and the observed data on state personal income were not adjusted for inflation. Using the consumer price index available from the Bureau of Labor Statistics, the income data were set to September 2017 US Dollars.
+
+Lastly, in being consistent with the analysis previously done by Dr. Brough, 3 lags will be assumed for all variables when modeled as time sereis. 
+
+MORE STUFF
+
+```{r, echo=FALSE}
+library(urca)
+
+manhours <- read.csv("AvgManHours_Ohio.csv", header = TRUE)
+manHours <- manhours$SMU39000003000000007SA
+
+nonFarm <- read.csv("Nonfarm_Ohio.csv", header = TRUE)
+nonfarm <- nonFarm$OHNA
+
+ohio <- read.csv("Ohio_formatted.csv", header = TRUE)
+colnames(ohio) <- c("elect", "income", "unemp")
+attach(ohio)
+
+manHours.ts <- ts(manHours, start = 2001, frequency = 12)
+nonfarm.ts <- ts(nonfarm, start = 2001, frequency = 12)
+elect.ts <- ts(elect, start = 2001, frequency = 12)
+income.ts <- ts(income, start = 2001, frequency = 12)
+unemp.ts <- ts(unemp, start = 2001, frequency = 12)
+```
+
+## Augmented Dickey-Fuller Test
+
+
+The Augmented Dickey Fuller Test specifies as a null hypothesis that a time series is a unit root process. In other words, a the null hypothesis assumes the series is not stationary. Let:
+
+$$ \Delta y_t = \beta_1 + \beta_2t + \pi y_{t-1} + \sum_{j=1}^k \gamma_j \Delta y_{t-j} + u_i  $$
+
+where $\beta_1$ is a drift term, $\beta_2$ is a trend, and $\rho = 1$ is the unit root and $\pi = \rho - 1$. Hence, the null hypothesis is specified as $H_0: \pi = 0$ and therefore unit root $\rho = 1$. However, applying the ADF test to a series that is possibly trend stationary may not reject $H_0$ and consequently not reject the presence of a unit root. For this reason, other test statistics need to be examined to ensure whether or not $\beta_1 = 0$ and $\beta_2 = 0$. Using the regression result from the equation above, the following test statistics will be evaluated for significance:
+
+$$ \tau_3: \pi = 0 $$
+$$ \phi_3: \pi = \beta_2 = 0 $$
+$$ \phi_2: \pi = \beta_1 = \beta_2 = 0$$
+A similar process will be conducted for the following regressions to ensure no presence of trend or drift:
+
+$$ \Delta y_t = \beta_1  + \pi y_{t-1} + \sum_{j=1}^k \gamma_j \Delta y_{t-j} + u_i  $$
+with
+
+$$ \tau_2: \pi = 0 $$
+$$ \phi_1 : \pi = \beta_1 = 0 $$
+
+and 
+
+$$ \Delta y_t =  \pi y_{t-1} + \sum_{j=1}^k \gamma_j \Delta y_{t-j} + u_i  $$
+with
+$$ \tau_1 : \pi = 0 $$
+
+Rejecting any one of the $\phi$ null hypotheses implies that at least one term is not equal to zero. One must begin with assuming both trend and drift are present and work down from there. A rejection of $\tau$ at any level implies that the series does not have a unit root. 
+
+### Sample Code implementing ADF Test for Average Manufacturing Hours
+
+```{r}
+summary(ur.df(manHours.ts, type = 'trend', lags = 3))
+summary(ur.df(manHours.ts, type = 'drift', lags = 3))
+summary(ur.df(manHours.ts, type = 'none', lags = 3))
+```
+$\newline$
+
+### Table 1: Results of the Augmented Dickey Fuller Test on the Ohio Data
+
+|Variable                   |ADF result                 |
+|:--------------------------|:-------------------------:|
+|Avg. Manufacturing Hours   |Unit Root Present          |
+|Nonfarm Employment         |Unit Root Present          |
+|Industrial Electriciy Sales|Stationary                 |
+|Total Income               |Unit Root Present          |
+|Unemployment Rate          |Unit Root Present          |
+
+
+Where there is a unit root present, log first differencing is used to check and see if the process is integrated of order 1, $I(1)$. 
+
+### Sample Code with Log First Differencing on Average Manufacturing Hours
+
+```{r}
+manHours.ln <- diff(log(manHours.ts))
+summary(ur.df(manHours.ln, type = 'trend', lags = 3))
+```
+$\newline$
+
+|Variable                   |Log First Difference ADF   |
+|:--------------------------|:-------------------------:|
+|Avg. Manufacturing Hours   |Stationary                 |
+|Nonfarm Employment         |Unit Root Present          |
+|Total Income               |Stationary                 |
+|Unemployment Rate          |Stationary                 |
+
+Nonfarm Employment may be $I(2)$ or perhaps of a higher order of integration. For sake of simplicity and demonstration, we will continue without it. However, all other variables are $I(1)$. 
+
+
+
+
+
+[^1]: https://www.philadelphiafed.org/-/media/research-and-data/publications/business-review/2000/november-december/brnd00tc.pdf?la=en
