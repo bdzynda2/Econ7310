@@ -12,7 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-This Project will seek to highlight and further examine some of the work being done on research concerning the economic impact of Renewable Portfolio Standards implemented at the state level. Five economic variables were originally selected to be fit in a VAR-X model, or a multivariate time series model with an exogenous variable(s). Recent adaptations of the model, whose work is the creation of Dr. Tyler Brough, limited the VAR-X to three variables to improve the overall degrees of freedom. With 3 lags, the model would need 125 parameter (25 variables per lag) estimates for roughly 200 observations assuming all variables were used. Additionally, the effect of cointegration may be present if all variables are used. Therefore, of the five variables including average weekly hours worked in manufacturing, nonfarm employment, unemployment rate, total personal income minus transfer payments, and industrial electricity sales, only the latter three were used in the most recent analysis. 
+This Project will seek to highlight and further examine some of the work being done on research concerning the economic impact of Renewable Portfolio Standards implemented at the state level. Commissioned by Strata Policy and now supported by the Center for Growth and Opportunity, the RPS project has held profound significance for both researchers and policy makers involved in it. The State of Kansas recently changed their RPS legislation from a requirement to a goal, thanks in part to the work of Strata. Now, a new model is being built. Formerly, Dr. Tyler Brough designed a model to fit panel data in order to estimate the _average_ effect of implementing a RPS in a state. The current model under development seeks to estimate the effect of this legislation on an individual state basis. Although different from that project, this excercise builds off some concerns which have come up in the modeling process. This work is unique and done especially for this Econometrics class. 
+
+Five economic variables were originally selected to be fit in a VAR-X model, or a multivariate time series model with an exogenous variable(s). Recent adaptations of the model, whose work is the creation of Dr. Tyler Brough, limited the VAR-X to three variables to improve the overall degrees of freedom. With 3 lags, the model would need 125 parameter (25 variables per lag) estimates for roughly 200 observations assuming all variables were used. Additionally, the effect of cointegration may be present if all variables are used. Therefore, of the five variables including average weekly hours worked in manufacturing, nonfarm employment, unemployment rate, total personal income minus transfer payments, and industrial electricity sales, only the latter three were used in the most recent analysis. 
 
 The goal of this project will be to further explore the potential presence and effect of cointegrating relationships with the inclusion of one of the omitted variables. For the sake of simplicity, the eventual VAR and VECM will be fit with three variables. I will choose ones that have the highest degree of cointegrating relationships. Then, I will fit these variables to both a VAR and a VECM to see how much the inclusion of the error correction component makes. Such exploration is important because our own Bayesian Vector Autoregression incorporates no error correction, even in wake of some potential cointegrating relationships among the three variables listed above which the model includes. Omitting the cointegrating term when a series is cointegrated could result in large model misspecification. 
 
@@ -29,11 +31,13 @@ Because state personal income is reported quarterly rather than monthly, cubic s
 
 I will test for the presence of cointegration according to the method of Engle-Granger[^1]. This is done by first testing each series for the presence of a unit root using the Augmented Dickey Fuller Test and the Zivot Andrews Test. If they are integrated of order 1, or stationary after differencing once, the series are regressed on each other using ordinary least squares estimates. The residuals from this model are then tested for stationarity. If stationary, then the series are cointegrated. 
 
-Models will be fit using the R package `vars` and `tsDyn`. This package will fit a VAR and VECM model using ordinary least squares and maximum likelihood estimation. In order to conserve degrees of freedom, I will assume a lag length of 2 for both models. Using the paramter estimates, I will perform a simulation to see how closely the estimated VAR and VECM fit the original path of the data. 
+Models will be fit using the R package `vars` and `tsDyn`. This package will fit a VAR and VECM model using ordinary least squares and maximum likelihood estimation. In order to conserve degrees of freedom, I will assume a lag length of 2 for both models. 
 
 Lastly, in addition to the aforementioned variables, a dummy variable represent the Great Recession beginning on December 2007 and ending on June 2009 will be included to account for the great shock occuring in the data during that time. Additionally an RPS dummy variable set to 1 when a standard is enacted will also be included. 
 
-```{r, echo=FALSE, results='hide'}
+To investigate the difference the error correction term makes, I will compare the results of the both fitted models to see how the inclusion of an error correction term affects what variables are significant. This is one way of assessing the impact of failing to include an error correction term. It will be shown that at least two variables are cointegrated. Deliberately fitting a VAR instead of a VECM when two processes are cointegrated should yield quite different results.
+
+```{r, echo=FALSE, results='hide', include=FALSE}
 library(urca)
 library(moments)
 library(vars)
@@ -124,6 +128,8 @@ summary(ur.df(manHours.ln, type = 'trend', lags = 3))
 ```
 $\newline$
 
+### Table 2: Results of the Augmented Dickey Fuller Test on the Differenced Ohio Data
+
 |Variable                   |Log First Difference ADF   |
 |:--------------------------|:-------------------------:|
 |Avg. Manufacturing Hours   |Stationary                 |
@@ -189,7 +195,7 @@ In contrast, it can be seen that average hours worked in manufacturing does not 
 
 $\newline$
 
-
+### Table 3: Results of the Zivot-Andrews Test
 |Variable                   |Zivot Andrews Results      |
 |:--------------------------|:-------------------------:|
 |Avg. Manufacturing Hours   |Unit Root Present          |
@@ -259,8 +265,8 @@ Implementing the Augmented Dickey Fuller Test yields the following result:
 
 $\newline$
 
-
-```{r}
+### Results of ADF Test on Residuals 
+```{r, echo = FALSE}
 coint.df <- ur.df(coint.lm$residuals, type = 'none', selectlags = 'AIC')
 summary(coint.df)
 
@@ -292,7 +298,7 @@ summary(model.var)
 ```
 $\newline$
 
-The fitted model with significant terms can be represented as follows. The variables $i$, $h$, and $u$ represent income, average weekly hours worked in manufacturing and unemployment rate respectively. 
+The fitted model with significant terms can be represented as follows:
 
 
 
@@ -363,7 +369,7 @@ t
 $$
 $\newline$
 
-where $\gamma$ represents the exogenous recession variable and $\nu$ signifies the enactment of a RPS.
+where $\gamma$ represents the exogenous recession variable and $\nu$ signifies the enactment of a RPS. The variables $i$, $h$, and $u$ represent income, average weekly hours worked in manufacturing, and unemployment rate respectively.
 
 $\newline$
 
@@ -378,7 +384,7 @@ summary(model.vecm)
 $\pagebreak$
 
 $\newline$
-The VECM can be represented as follows.
+The VECM can be represented as follows:
 
 $\newline$
 
@@ -467,48 +473,41 @@ where $\gamma$ represents the exogenous recession variable and $\nu$ signifies t
 
 
 
-# Simulations
+# Conclusions
 
-VAR
-```{r}
+As shown above, the error correction component with the values $\begin{bmatrix} -.0401 & 2.0273 & 0 \end{bmatrix}^T$ is significant. In fact, the signficant terms correspond to the two series, income and average hours, that were suspected to be cointegrated. The positive and negative values are insightful as well. When one series gets far from another in a short term deviation, the error term "pulls" it back to follow the long term trend aligned with the other series.
 
-# series <- data.frame(income.ts, manHours.ts, unemp.ts)
-# 
-# A1 = matrix(c(1.449, 0, -3.27,
-#              0, .5264, -109.5,
-#              0,  0,  0), nrow = 3, ncol = 3)
-# 
-# A2 = matrix(c(-.5616, 0, -2.568,
-#              0, .1772, 106.2,
-#              0,  0,  -.7768), nrow = 3, ncol = 3)
-# 
-# dvar = matrix(c(.4494, 8.521, 0.2185), nrow = 3, ncol = 1)
-# tvar = matrix(c(.0001834, 0, 0), nrow = 3, ncol = 1)
+Comparing the models shows quite a number of differences in model fit. Because it is known that the VECM model is the one to use, one can count the VAR as the "incorrect" model. Assuming a VAR a priori could result in a bad model in the end. 
 
-# t = c(1:nrow(series))
-# 
-# e1 = rnorm(nrow(series))
-# e2 = rnorm(nrow(series))
-# e3 = rnorm(nrow(series))
-# 
-# e = data.frame(e1,e2,e3)
-# 
-# i = rep(0, nrow(series)); i[1:2] = income.ts[1:2]
-# h = rep(0, nrow(series)); h[1:2] = manHours.ts[1:2]
-# u = rep(0, nrow(series)); u[1:2] = unemp.ts[1:2]
-# 
-# for(j in (1:191)){
-#   i[j+2] = 1.449*i[j+1]  -  3.27*u[j+1]  -  .5616*i[j]  +  2.568*u[j]  +  .4494  +  t*.0001834 + e1
-#   h[j+2] = .5264*h[j+1]  -  109.5*u[j+1]  +  .1772*h[j]  +  106.2*u[j]  +  8.521 + e2
-#   u[j+2] = 1.746*u[j+1]  -  .7768*u[j]  +  .02185 + e3
-# }
+### Table 4: Comparisons of Parameter Values between VAR and VECM Models
+
+|Parameter              | VAR - Income  | VECM - Income  | VAR - Hours  | VECM - Hours  | VAR - Unemployment | VECM - Unemployment |
+|:----------------------|:-------------:|:--------------:|:------------:|:-------------:|:----------------:|:-----------------:|
+|Lag 1 Income           |1.436          |0.7371          |0             |0              |0                 |0                  |
+|Lag 1 Hours            |0              |-0.0042         |0.478940      |-0.2865        |0                 |0                  | 
+|Lag 1 Unemp.           |-2.278         |-4.4600         |-65.776842    |0              |1.644             |0.6328             |
+|Lag 2 Income           |-0.571         |-0.3594         |0             |0              |0                 |0                  |
+|Lag 2 Hours            |0              |-0.0044         |0.168576      |0              |0                 |0                  |
+|Lag 2 Unemp.           |0              |2.6318          |0             |0              |-0.6613           |0                  |
+|Constant               |0.5935         |0               |15.120957     |0.2909         |0                 |0                  |
+|Trend                  |0.000271       |0               |0             |-0.0035        |0                 |0                  |
+|RPS Policy             |0              |0               |0             |0              |0.000874          |0                  |
+|Recession              |-0.009374      |0               |-0.399583     |-0.2524        |0.0008522         |0.0007             |
 
 
-```
+In the VECM model, terms overall become more significant in terms of income. What was formerly left out of the VAR is now included in the VECM. However, the constant disappears, as well as the effect of the Recession. Perhaps the lost Recession term is gained in the new influence of lagged average manufacturing hours in the VECM not included in the VAR. 
+
+In terms of manufacturing hours, there is a lot of terms which become insignificant compared with its VAR counterpart. One striking example is the influence of first lagged unemployment. Formerly, it was at a significant -65.77. With the VECM, it becomes insignificant. 
+
+One other interesting effect is the loss of RPS significance. Enactment of a renewable portfolio standard demonstrated some effect in increasing unemployment in the VAR. However, it loses its significance in the VECM. This result should be important to note, given the overall goal of the project. 
+
+Unemployment seems to become solely determined by previous values of unemployment and the recession, which increases it as shown in the VECM. It's terms become a lot more succinct going from the VAR. 
 
 
 
+Overall, this is a simple analysis conducted to highlight some potential errors that may come in implementing a VAR with a cointegrated multivariate series. This is important to know for the greater RPS project. If a VAR, even a Bayesian estimated one, excludes cointegration, this may lead to faulty results when dynamic multiplier analysis is applied. Of course, this exercise is not a perfect representation. One ought to include all variables, not just three. Additionally, model fit might be improved if log differences were to be used, as they are in the regular RPS. For ease of interpretation and results, levels were used here. One final difference is that this project used maximum likelihood estimation instead of Bayesian for efficiency. A more thorough review may use Bayesian prior and posterior distributions to ascertain parameter estimates. Yet, this would be a complex and potentially confusing element of what seeks to be a short and intuitive excercise. 
 
+Although the new model does not consider the variables with strongly cointegrated relationships, the old one does. Thus, results from that model may be inaccurate and should probably not be used to argue for or against RPS policy. However, the newer model will supercede the older one, and this concern can be laid to rest. What can be concluded in the end, however, is that one ought to be watchful for cointegration and take appropriate action to address it should it be detected.
 
 
 
