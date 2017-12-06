@@ -380,7 +380,6 @@ $\pagebreak$
 $\newline$
 The VECM can be represented as follows.
 
-
 $\newline$
 
 $$
