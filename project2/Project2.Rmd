@@ -14,13 +14,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This Project will seek to highlight and further examine some of the work being done on research concerning the economic impact of Renewable Portfolio Standards implemented at the state level. Five economic variables were originally selected to be fit in a VAR-X model, or a multivariate time series model with an exogenous variable(s). Recent adaptations of the model, whose work is the creation of Dr. Tyler Brough, limited the VAR-X to three variables to improve the overall degrees of freedom. With 3 lags, the model would need 125 parameter (25 variables per lag) estimates for roughly 200 observations assuming all variables were used. Additionally, the effect of cointegration may be present if all variables are used. Therefore, of the five variables including average weekly hours worked in manufacturing, nonfarm employment, unemployment rate, total personal income minus transfer payments, and industrial electricity sales, only the latter three were used in the most recent analysis. 
 
-The goal of this project will be to further explore the potential presence and effect of cointegrating relationships with the inclusion of one of the omitted variables. For the sake of simplicity, the eventual VAR and VECM will be fit with three variables. I will choose ones that have the highest degree of cointegrating relationships. Then, I will fit these variables to both a VAR and a VECM to see how much the inclusion of the error correction component makes. Such exploration is important because our own Bayesian Vector Autoregression incorporates no error correction, even in wake of some potential cointegrating relationships among the three variables listed above which the model includes. 
+The goal of this project will be to further explore the potential presence and effect of cointegrating relationships with the inclusion of one of the omitted variables. For the sake of simplicity, the eventual VAR and VECM will be fit with three variables. I will choose ones that have the highest degree of cointegrating relationships. Then, I will fit these variables to both a VAR and a VECM to see how much the inclusion of the error correction component makes. Such exploration is important because our own Bayesian Vector Autoregression incorporates no error correction, even in wake of some potential cointegrating relationships among the three variables listed above which the model includes. Omitting the cointegrating term when a series is cointegrated could result in large model misspecification. 
 
 # Data 
 
 Following the example of the Federal Reserve Bank of Philadelphia[^1] in measuring the strength of a regional economy, this project employs seasonally adjusted monthly state unemployment rates, monthly industrial electricity sales, and quarterly state personal income minus transfer payments beginning in January of 2001 and ending on April 2017 for the state of Ohio. 
 
-Industrial Electricity Sales are used as a measure of a state's industrial production and activity. These sales numbers are reported in millions of kilowatthours by the US Department of Energy. These data were obtained from the US Energy Information Administration. Unemployment data for each state was collected from the Bureau of Labor Statistics, as was average Weekly hours worked in Manufacturing, and nonfarm employment in thousands of persons. Lastly, quarterly state personal income and transfer payments were gathered from the Bureau of Economic Analysis and reported in thousands of dollars.
+Industrial Electricity Sales are used as a measure of a state's industrial production and activity. These sales numbers are reported in millions of kilowatthours by the US Department of Energy. These data were obtained from the US Energy Information Administration. Unemployment data for each state was collected from the Bureau of Labor Statistics, as was average weekly hours worked in Manufacturing, and nonfarm employment in thousands of persons. Lastly, quarterly state personal income and transfer payments were gathered from the Bureau of Economic Analysis and reported in thousands of dollars.
 
 Because state personal income is reported quarterly rather than monthly, cubic spline interpolation was used to estimate monthly points between each quarter after subtracting out transfer payments from the total state income. A common practice used in econometrics, spline interpolation does not generate new data points but rather estimates data between observed data points. The interpolated data and the observed data on state personal income were not adjusted for inflation. Using the consumer price index available from the Bureau of Labor Statistics, the income data were set to September 2017 US Dollars.
 
@@ -31,13 +31,19 @@ I will test for the presence of cointegration according to the method of Engle-G
 
 Models will be fit using the R package `vars` and `tsDyn`. This package will fit a VAR and VECM model using ordinary least squares and maximum likelihood estimation. In order to conserve degrees of freedom, I will assume a lag length of 2 for both models. Using the paramter estimates, I will perform a simulation to see how closely the estimated VAR and VECM fit the original path of the data. 
 
-Lastly, in addition to the aforementioned variables, a dummy variable represent the Great Recession beginning on December 2007 and ending on June 2009 will be included to account for the great shock occuring in the data during that time. 
+Lastly, in addition to the aforementioned variables, a dummy variable represent the Great Recession beginning on December 2007 and ending on June 2009 will be included to account for the great shock occuring in the data during that time. Additionally an RPS dummy variable set to 1 when a standard is enacted will also be included. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, results='hide'}
 library(urca)
 library(moments)
 library(vars)
 library(tsDyn)
+
+exog <- read.csv("OH_exog.csv", header = FALSE)
+# rec.ts <- ts(exog$V2, start = 2001, frequency = 12)
+# rps.ts <- ts(exog$V1, start = 2001, frequency = 12)
+rec <- exog$V2
+rps <- exog$V1
 
 manhours <- read.csv("AvgManHours_Ohio.csv", header = TRUE)
 manHours <- manhours$SMU39000003000000007SA
@@ -213,7 +219,9 @@ $$y_t = \beta_0 + \gamma_1 x_t + z_t$$
 
 be the linear combination of the time series. Through linear regression, the residuals $z_t$ can be generated. If this new series $z_t = \gamma_0 y_t - \gamma_1 x_t$ is $I(0)$, then there exits a cointegrated relationship.
 
-Here, income and manufacturing hours will be tested for a cointegrating relationship since they are both $I(1)$ according to the ADF Test and the Zivot-Andrews Test. 
+Cointegration is eveident visually by observing two or more series following a similar long term trend. This can be seen in the plot below with income and manufacturing hours. They follow the same path with the exception of short term deviations. Error correction components essentially act as the tie between two series such that no one series deviates far from the other. 
+
+Here, income and manufacturing hours will be tested for a cointegrating relationship since they are both $I(1)$ according to the ADF Test and the Zivot-Andrews Test, along with visual evidence of cointegration. 
 
 
 ### Plots
@@ -277,14 +285,14 @@ series <- cbind(income.ts, manHours.ts, unemp.ts)
 series <- ts(series, start = 2001, frequency = 12)
 
 
-model.var <- VAR(series, p = 2, type = 'both')
+model.var <- VAR(series, p = 2, type = 'both', exogen = cbind(rec, rps))
 summary(model.var)
 
 
 ```
 $\newline$
 
-The fitted model with significant terms can be represented as follows. 
+The fitted model with significant terms can be represented as follows. The variables $i$, $h$, and $u$ represent income, average weekly hours worked in manufacturing and unemployment rate respectively. 
 
 
 
@@ -296,9 +304,9 @@ u_t
 \end{bmatrix}
 =
 \begin{bmatrix}
-1.449 & 0 & -3.27 \\
-0  &  0.5264  &  -109.5 \\
-0  &  0  &  1.746
+1.44 & 0 & -2.28 \\
+0  &  0.479  &  -65.78 \\
+0  &  0  &  1.64
 \end{bmatrix}
 \begin{bmatrix}
 i_{t-1}  \\
@@ -307,9 +315,9 @@ u_{t-1}
 \end{bmatrix}
 + 
 \begin{bmatrix}
--0.5616 & 0 & 2.568 \\
-0  &  0.1772  &  106.2 \\
-0  &  0  &  -0.7768
+-0.571 & 0 & 0 \\
+0  &  0.169  &  0 \\
+0  &  0  &  -0.661
 \end{bmatrix}
 \begin{bmatrix}
 i_{t-2}  \\
@@ -318,23 +326,44 @@ u_{t-2}
 \end{bmatrix}
 +
 \begin{bmatrix}
-0.4494  \\
-8.521  \\
-0.02185  
+-.009374 \\
+-.399583 \\
+-.0008522
+\end{bmatrix}
+\gamma
+$$
+
+$$
++
+\begin{bmatrix}
+0 \\
+0\\
+.000874
+\end{bmatrix}
+\nu
++
+\begin{bmatrix}
+0.594  \\
+15.12  \\
+0  
 \end{bmatrix}
 +
 t
 \begin{bmatrix}
-0.0001834  \\
+0.00027 \\
 0  \\
 0  
 \end{bmatrix}
++
 \begin{bmatrix}
 \epsilon_1  \\
 \epsilon_2  \\
 \epsilon_3 
 \end{bmatrix}
 $$
+$\newline$
+
+where $\gamma$ represents the exogenous recession variable and $\nu$ signifies the enactment of a RPS.
 
 $\newline$
 
@@ -343,17 +372,15 @@ $\newline$
 
 
 ```{r}
-
-model.vecm <- VECM(series, lag=2, r=1, include = 'both', estim = '2OLS')
+model.vecm <- VECM(series, lag=2, r=1, include = 'both', estim = '2OLS', exogen = cbind(rec, rps))
 summary(model.vecm)
-
 ```
-$\newline$
+$\pagebreak$
 
+$\newline$
 The VECM can be represented as follows.
 
 $\newline$
-
 
 $$
 \begin{bmatrix}
@@ -363,9 +390,9 @@ u_t
 \end{bmatrix}
 =
 \begin{bmatrix}
-0.739 & 0 & -5.01 \\
-0  &  -0.269  &  -88.83 \\
-0  &  0  &  0.699
+0.737 & 0 & -4.46 \\
+0  &  -.287  &  0 \\
+0  &  0  &  0.633
 \end{bmatrix}
 \begin{bmatrix}
 i_{t-1}  \\
@@ -374,9 +401,9 @@ u_{t-1}
 \end{bmatrix}
 + 
 \begin{bmatrix}
--.036 & 0 & 2.49 \\
+-.359 & -.0044 & 2.63 \\
 0  &  0  &  0 \\
-0  &  0  &  0.161
+0  &  0  &  0
 \end{bmatrix}
 \begin{bmatrix}
 i_{t-2}  \\
@@ -385,8 +412,25 @@ u_{t-2}
 \end{bmatrix}
 +
 \begin{bmatrix}
--0.0396  \\
-1.9509  \\
+0 \\
+-.2524 \\
+.0007
+\end{bmatrix}
+\gamma
+$$
+
+$$
++
+\begin{bmatrix}
+0 \\
+0 \\
+0 
+\end{bmatrix}
+\nu
++
+\begin{bmatrix}
+-.0401\\
+2.0273  \\
 0  
 \end{bmatrix}
 \begin{bmatrix}
@@ -397,14 +441,15 @@ z_{u,t}
 +
 \begin{bmatrix}
 0  \\
-0.235  \\
+0.291  \\
 0  
 \end{bmatrix}
 +
+\newline
 t
 \begin{bmatrix}
-.0001  \\
--.002  \\
+0  \\
+-.0035  \\
 0  
 \end{bmatrix}
 +
@@ -414,6 +459,10 @@ t
 \varepsilon_3 
 \end{bmatrix}
 $$
+
+$\newline$
+
+where $\gamma$ represents the exogenous recession variable and $\nu$ signifies the enactment of a RPS. Each $z$ represents the residuals from the linear combination of all three variables
 
 
 
@@ -436,23 +485,23 @@ VAR
 # dvar = matrix(c(.4494, 8.521, 0.2185), nrow = 3, ncol = 1)
 # tvar = matrix(c(.0001834, 0, 0), nrow = 3, ncol = 1)
 
-t = c(1:nrow(series))
-
-e1 = rnorm(nrow(series))
-e2 = rnorm(nrow(series))
-e3 = rnorm(nrow(series))
-
-e = data.frame(e1,e2,e3)
-
-i = rep(0, nrow(series)); i[1:2] = income.ts[1:2]
-h = rep(0, nrow(series)); h[1:2] = manHours.ts[1:2]
-u = rep(0, nrow(series)); u[1:2] = unemp.ts[1:2]
-
-for(j in (1:191)){
-  i[j+2] = 1.449*i[j+1]  -  3.27*u[j+1]  -  .5616*i[j]  +  2.568*u[j]  +  .4494  +  t*.0001834 + e1
-  h[j+2] = .5264*h[j+1]  -  109.5*u[j+1]  +  .1772*h[j]  +  106.2*u[j]  +  8.521 + e2
-  u[j+2] = 1.746*u[j+1]  -  .7768*u[j]  +  .02185 + e3
-}
+# t = c(1:nrow(series))
+# 
+# e1 = rnorm(nrow(series))
+# e2 = rnorm(nrow(series))
+# e3 = rnorm(nrow(series))
+# 
+# e = data.frame(e1,e2,e3)
+# 
+# i = rep(0, nrow(series)); i[1:2] = income.ts[1:2]
+# h = rep(0, nrow(series)); h[1:2] = manHours.ts[1:2]
+# u = rep(0, nrow(series)); u[1:2] = unemp.ts[1:2]
+# 
+# for(j in (1:191)){
+#   i[j+2] = 1.449*i[j+1]  -  3.27*u[j+1]  -  .5616*i[j]  +  2.568*u[j]  +  .4494  +  t*.0001834 + e1
+#   h[j+2] = .5264*h[j+1]  -  109.5*u[j+1]  +  .1772*h[j]  +  106.2*u[j]  +  8.521 + e2
+#   u[j+2] = 1.746*u[j+1]  -  .7768*u[j]  +  .02185 + e3
+# }
 
 
 ```
